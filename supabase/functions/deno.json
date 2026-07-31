@@ -1,5 +1,5 @@
 {
   "tasks": {
-    "test": "deno test --allow-none _shared"
+    "test": "deno test _shared"
   }
 }

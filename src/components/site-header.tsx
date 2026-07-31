@@ -1,28 +1,15 @@
-import { LogOut } from 'lucide-react'
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { lazy, Suspense } from 'react'
 import { useAuth } from '@/lib/auth'
 
-function initialsFor(name: string | null, email: string | undefined) {
-  const source = name ?? email ?? '?'
-  return source.slice(0, 2).toUpperCase()
-}
+// Only signed-in visitors ever see the account menu (avatar, dropdown,
+// sign-out), so its code — and the Radix dropdown primitive it pulls in —
+// is kept out of the bundle anonymous visitors have to download.
+const AccountMenu = lazy(() =>
+  import('@/components/account-menu').then((m) => ({ default: m.AccountMenu })),
+)
 
 export function SiteHeader() {
-  const { user, signOut } = useAuth()
-  const displayName = (user?.user_metadata?.full_name as string) ?? null
-  const avatarUrl = (user?.user_metadata?.avatar_url as string) ?? undefined
+  const { user } = useAuth()
 
   return (
     <header className="bg-background border-b">
@@ -33,38 +20,9 @@ export function SiteHeader() {
         </span>
 
         {user && (
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Account menu"
-              className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
-            >
-              <Avatar>
-                <AvatarImage src={avatarUrl} alt="" />
-                <AvatarFallback>
-                  {initialsFor(displayName, user.email)}
-                </AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col gap-0.5">
-                  {displayName && (
-                    <span className="text-sm font-medium">
-                      {displayName}
-                    </span>
-                  )}
-                  <span className="text-muted-foreground text-xs">
-                    {user.email}
-                  </span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => void signOut()}>
-                <LogOut />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Suspense fallback={null}>
+            <AccountMenu />
+          </Suspense>
         )}
       </div>
     </header>
