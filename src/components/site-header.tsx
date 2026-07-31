@@ -27,7 +27,10 @@ export function SiteHeader() {
   return (
     <header className="border-b">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-        <span className="text-lg font-semibold tracking-tight">Prune</span>
+        <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+          <img src="/favicon.svg" alt="" className="size-6" />
+          Prune
+        </span>
 
         {user && (
           <DropdownMenu>

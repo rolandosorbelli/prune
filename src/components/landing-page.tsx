@@ -1,12 +1,34 @@
+import { Search, ShieldCheck, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth'
 import { isSupabaseConfigured } from '@/lib/supabase'
+
+const FEATURES = [
+  {
+    icon: Search,
+    title: 'Scans automatically',
+    description:
+      'Finds newsletters and marketing lists across your inbox in one pass.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Read-only access',
+    description:
+      "We only read message headers to find senders — never your email content.",
+  },
+  {
+    icon: Zap,
+    title: 'One-click unsubscribe',
+    description:
+      'True one-click where senders support it, no tab-hopping required.',
+  },
+]
 
 export function LandingPage() {
   const { signInWithGoogle } = useAuth()
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6">
+    <main className="flex flex-1 flex-col items-center justify-center gap-16 px-6 py-16">
       <div className="flex max-w-xl flex-col items-center gap-6 text-center">
         <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
           Clean up your inbox subscriptions
@@ -25,16 +47,26 @@ export function LandingPage() {
         {!isSupabaseConfigured && (
           <p className="text-muted-foreground text-sm">
             Supabase isn't configured yet &mdash; add{' '}
-            <code className="bg-muted rounded px-1 py-0.5">
-              VITE_SUPABASE_URL
-            </code>{' '}
+            <code className="bg-muted px-1 py-0.5">VITE_SUPABASE_URL</code>{' '}
             and{' '}
-            <code className="bg-muted rounded px-1 py-0.5">
+            <code className="bg-muted px-1 py-0.5">
               VITE_SUPABASE_ANON_KEY
             </code>{' '}
-            to <code className="bg-muted rounded px-1 py-0.5">.env.local</code>.
+            to <code className="bg-muted px-1 py-0.5">.env.local</code>.
           </p>
         )}
+      </div>
+
+      <div className="grid w-full max-w-3xl grid-cols-1 gap-8 border-t pt-12 sm:grid-cols-3">
+        {FEATURES.map(({ icon: Icon, title, description }) => (
+          <div key={title} className="flex flex-col items-center gap-2 text-center">
+            <div className="bg-primary/10 text-primary flex size-10 items-center justify-center">
+              <Icon className="size-5" />
+            </div>
+            <h2 className="font-medium">{title}</h2>
+            <p className="text-muted-foreground text-sm">{description}</p>
+          </div>
+        ))}
       </div>
     </main>
   )
