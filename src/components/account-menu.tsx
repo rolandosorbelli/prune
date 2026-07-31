@@ -8,6 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { ThemeToggleItem } from '@/components/theme-toggle-item'
 import { useAuth } from '@/lib/auth'
 
 function initialsFor(name: string | null, email: string | undefined) {
@@ -49,6 +50,8 @@ export function AccountMenu() {
             </span>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator className="my-2" />
+        <ThemeToggleItem />
         <DropdownMenuSeparator className="my-2" />
         <DropdownMenuItem
           className="px-2 py-2"

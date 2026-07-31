@@ -5,6 +5,19 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Prune</title>
+    <script>
+      // Applies a stored manual theme choice before first paint, so
+      // returning visitors who overrode their system preference do not
+      // see a flash of the other theme. First-time visitors with no
+      // stored choice are handled entirely by CSS (prefers-color-scheme),
+      // so this script has nothing to do for them.
+      try {
+        var storedTheme = localStorage.getItem('prune-theme')
+        if (storedTheme === 'dark' || storedTheme === 'light') {
+          document.documentElement.classList.add(storedTheme)
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
