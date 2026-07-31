@@ -6,7 +6,7 @@ function App() {
       <header className="border-b">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
           <span className="text-lg font-semibold tracking-tight">
-            SubCleaner
+            Prune
           </span>
         </div>
       </header>
@@ -31,7 +31,7 @@ function App() {
 
       <footer className="border-t">
         <div className="mx-auto w-full max-w-5xl px-6 py-4 text-center text-sm text-muted-foreground">
-          SubCleaner &mdash; built with React, Vite &amp; TypeScript
+          Prune &mdash; built with React, Vite &amp; TypeScript
         </div>
       </footer>
     </div>

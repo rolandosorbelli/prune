@@ -1,4 +1,4 @@
-# SubCleaner
+# Prune
 
 Scan your inbox for newsletter and marketing subscriptions, and unsubscribe in one click.
 
