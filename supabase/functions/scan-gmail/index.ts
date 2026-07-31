@@ -112,7 +112,10 @@ async function getGoogleAccessToken(refreshToken: string): Promise<string> {
   })
 
   if (!response.ok) {
-    throw new Error(`Failed to refresh Google access token (${response.status})`)
+    const body = await response.text()
+    throw new Error(
+      `Failed to refresh Google access token (${response.status}): ${body}`,
+    )
   }
 
   const data = await response.json()
@@ -135,7 +138,10 @@ async function listMessageIds(accessToken: string): Promise<string[]> {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (!response.ok) {
-      throw new Error(`Gmail list request failed (${response.status})`)
+      const body = await response.text()
+      throw new Error(
+        `Gmail list request failed (${response.status}): ${body}`,
+      )
     }
 
     const data = await response.json()
