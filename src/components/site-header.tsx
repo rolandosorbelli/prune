@@ -31,7 +31,10 @@ export function SiteHeader() {
 
         {user && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2">
+            <DropdownMenuTrigger
+              aria-label="Account menu"
+              className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
               <Avatar>
                 <AvatarImage src={avatarUrl} alt="" />
                 <AvatarFallback>

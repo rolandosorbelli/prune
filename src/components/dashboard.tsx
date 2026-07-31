@@ -167,6 +167,7 @@ export function Dashboard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by sender"
+              aria-label="Search subscriptions by sender"
               className="pl-9"
             />
           </div>
@@ -176,7 +177,7 @@ export function Dashboard() {
               setCategory(value as SubscriptionCategory | 'all')
             }
           >
-            <SelectTrigger className="sm:w-48">
+            <SelectTrigger aria-label="Filter by category" className="sm:w-48">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>

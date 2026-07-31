@@ -1,14 +1,19 @@
 import { corsHeaders } from '../_shared/cors.ts'
 import { decryptToken } from '../_shared/crypto.ts'
 import { createAdminClient, getUserFromRequest } from '../_shared/supabase-admin.ts'
+import {
+  categoryFromLabels,
+  isOneClickSupported,
+  parseFromHeader,
+  parseListUnsubscribe,
+  type Category,
+} from '../_shared/parse.ts'
 
 const GMAIL_QUERY =
   '(category:promotions OR category:social OR category:updates OR category:forums) newer_than:90d'
 const MAX_MESSAGES = 300
 const PAGE_SIZE = 100
 const FETCH_CONCURRENCY = 10
-
-type Category = 'promotions' | 'social' | 'updates' | 'forums' | 'other'
 
 type Aggregate = {
   senderEmail: string
@@ -240,44 +245,8 @@ async function getMessageMetadata(
     date: new Date(Number(data.internalDate)).toISOString(),
     unsubscribeMethod: method,
     unsubscribeTarget: target,
-    supportsOneClick:
-      method === 'link' &&
-      (listUnsubscribePostHeader ?? '').includes('List-Unsubscribe=One-Click'),
+    supportsOneClick: isOneClickSupported(method, listUnsubscribePostHeader),
   }
-}
-
-function parseFromHeader(value: string): {
-  name: string | null
-  email: string
-} {
-  const match = value.match(/^(.*?)\s*<(.+)>$/)
-  if (match) {
-    const name = match[1].replace(/"/g, '').trim()
-    return { name: name || null, email: match[2].trim().toLowerCase() }
-  }
-  return { name: null, email: value.trim().toLowerCase() }
-}
-
-function parseListUnsubscribe(value: string): {
-  method: 'link' | 'mailto' | null
-  target: string | null
-} {
-  const links = [...value.matchAll(/<([^>]+)>/g)].map((m) => m[1])
-  const httpLink = links.find((l) => l.startsWith('http'))
-  if (httpLink) return { method: 'link', target: httpLink }
-
-  const mailtoLink = links.find((l) => l.startsWith('mailto:'))
-  if (mailtoLink) return { method: 'mailto', target: mailtoLink }
-
-  return { method: null, target: null }
-}
-
-function categoryFromLabels(labelIds: string[]): Category {
-  if (labelIds.includes('CATEGORY_PROMOTIONS')) return 'promotions'
-  if (labelIds.includes('CATEGORY_SOCIAL')) return 'social'
-  if (labelIds.includes('CATEGORY_UPDATES')) return 'updates'
-  if (labelIds.includes('CATEGORY_FORUMS')) return 'forums'
-  return 'other'
 }
 
 async function mapWithConcurrency<T>(
