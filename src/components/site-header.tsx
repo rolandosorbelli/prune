@@ -26,8 +26,8 @@ export function SiteHeader() {
 
   return (
     <header className="border-b">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-        <span className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-8 py-5">
+        <span className="font-heading flex items-center gap-2 text-xl font-medium tracking-tight">
           <img src="/favicon.svg" alt="" className="size-6" />
           Prune
         </span>

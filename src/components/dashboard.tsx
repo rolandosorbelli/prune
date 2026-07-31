@@ -1,31 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Ban, Check, Inbox, Loader2, RefreshCw, Search } from 'lucide-react'
+import { Ban, Check, Inbox, Link2, Loader2, Mail, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { SubscriptionSidebar } from '@/components/subscription-sidebar'
+import { CATEGORY_META } from '@/lib/subscription-meta'
 import {
   fetchSubscriptions,
   ignoreSubscription,
   triggerScan,
   unsubscribeFrom,
 } from '@/lib/subscriptions'
-import type { Subscription, SubscriptionCategory } from '@/lib/types'
-
-const CATEGORY_LABELS: Record<SubscriptionCategory, string> = {
-  promotions: 'Promotions',
-  social: 'Social',
-  updates: 'Updates',
-  forums: 'Forums',
-  other: 'Other',
-}
+import type {
+  Subscription,
+  SubscriptionCategory,
+  SubscriptionStatus,
+} from '@/lib/types'
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -43,6 +33,7 @@ export function Dashboard() {
   const [category, setCategory] = useState<SubscriptionCategory | 'all'>(
     'all',
   )
+  const [status, setStatus] = useState<SubscriptionStatus | 'all'>('all')
   const [pending, setPending] = useState<Record<string, PendingAction>>({})
 
   useEffect(() => {
@@ -120,112 +111,110 @@ export function Dashboard() {
     }
   }
 
+  const categoryCounts = useMemo(() => {
+    const counts: Partial<Record<SubscriptionCategory, number>> = {}
+    for (const sub of subscriptions ?? []) {
+      counts[sub.category] = (counts[sub.category] ?? 0) + 1
+    }
+    return counts
+  }, [subscriptions])
+
+  const statusCounts = useMemo(() => {
+    const counts: Partial<Record<SubscriptionStatus, number>> = {}
+    for (const sub of subscriptions ?? []) {
+      counts[sub.status] = (counts[sub.status] ?? 0) + 1
+    }
+    return counts
+  }, [subscriptions])
+
   const filtered = useMemo(() => {
     if (!subscriptions) return []
     return subscriptions.filter((sub) => {
       const matchesCategory = category === 'all' || sub.category === category
+      const matchesStatus = status === 'all' || sub.status === status
       const query = search.trim().toLowerCase()
       const matchesSearch =
         query.length === 0 ||
         sub.senderEmail.toLowerCase().includes(query) ||
         (sub.senderName?.toLowerCase().includes(query) ?? false)
-      return matchesCategory && matchesSearch
+      return matchesCategory && matchesStatus && matchesSearch
     })
-  }, [subscriptions, search, category])
+  }, [subscriptions, search, category, status])
 
   const isLoading = subscriptions === null
   const hasSubscriptions = (subscriptions?.length ?? 0) > 0
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Your subscriptions
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Newsletters and marketing lists found in your inbox.
-          </p>
-        </div>
-        <Button onClick={() => void handleScan()} disabled={scanning}>
-          <RefreshCw className={scanning ? 'animate-spin' : undefined} />
-          {scanning ? 'Scanning…' : 'Scan inbox'}
-        </Button>
-      </div>
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-8 py-12 lg:flex-row lg:items-start lg:gap-16">
+      <SubscriptionSidebar
+        search={search}
+        onSearchChange={setSearch}
+        category={category}
+        onCategoryChange={setCategory}
+        status={status}
+        onStatusChange={setStatus}
+        categoryCounts={categoryCounts}
+        statusCounts={statusCounts}
+        totalCount={subscriptions?.length ?? 0}
+      />
 
-      {error && (
-        <div className="border-destructive/50 bg-destructive/10 text-destructive mt-6 rounded-md border px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
-
-      {hasSubscriptions && (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by sender"
-              aria-label="Search subscriptions by sender"
-              className="pl-9"
-            />
+      <main className="min-w-0 flex-1">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="font-heading text-3xl font-medium tracking-tight">
+              Your subscriptions
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Newsletters and marketing lists found in your inbox.
+            </p>
           </div>
-          <Select
-            value={category}
-            onValueChange={(value) =>
-              setCategory(value as SubscriptionCategory | 'all')
-            }
-          >
-            <SelectTrigger aria-label="Filter by category" className="sm:w-48">
-              <SelectValue placeholder="All categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Button onClick={() => void handleScan()} disabled={scanning}>
+            <RefreshCw className={scanning ? 'animate-spin' : undefined} />
+            {scanning ? 'Scanning…' : 'Scan inbox'}
+          </Button>
         </div>
-      )}
 
-      <div className="mt-6">
-        {isLoading ? (
-          <div className="flex flex-col gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
+        {error && (
+          <div className="border-destructive/50 bg-destructive/10 text-destructive mt-8 border px-4 py-3 text-sm">
+            {error}
           </div>
-        ) : !hasSubscriptions ? (
-          <EmptyState />
-        ) : filtered.length === 0 ? (
-          <p className="text-muted-foreground py-12 text-center text-sm">
-            No subscriptions match your search.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {filtered.map((sub) => (
-              <SubscriptionRow
-                key={sub.id}
-                subscription={sub}
-                pendingAction={pending[sub.id]}
-                onUnsubscribe={() => void handleUnsubscribe(sub)}
-                onIgnore={() => void handleIgnore(sub)}
-              />
-            ))}
-          </ul>
         )}
-      </div>
-    </main>
+
+        <div className="mt-8">
+          {isLoading ? (
+            <div className="flex flex-col gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : !hasSubscriptions ? (
+            <EmptyState />
+          ) : filtered.length === 0 ? (
+            <p className="text-muted-foreground py-12 text-center text-sm">
+              No subscriptions match your filters.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {filtered.map((sub) => (
+                <SubscriptionRow
+                  key={sub.id}
+                  subscription={sub}
+                  pendingAction={pending[sub.id]}
+                  onUnsubscribe={() => void handleUnsubscribe(sub)}
+                  onIgnore={() => void handleIgnore(sub)}
+                />
+              ))}
+            </ul>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
+    <div className="flex flex-col items-center gap-3 border border-dashed py-20 text-center">
       <Inbox className="text-muted-foreground size-8" />
       <div>
         <p className="font-medium">No subscriptions found yet</p>
@@ -249,25 +238,49 @@ function SubscriptionRow({
   onIgnore: () => void
 }) {
   const isPending = pendingAction !== undefined
+  const categoryMeta = CATEGORY_META[subscription.category]
+  const CategoryIcon = categoryMeta.icon
+  const MethodIcon = subscription.unsubscribeMethod === 'mailto' ? Mail : Link2
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <p className="truncate font-medium">
-          {subscription.senderName ?? subscription.senderEmail}
-        </p>
-        <p className="text-muted-foreground truncate text-sm">
-          {subscription.senderEmail}
-        </p>
+    <li className="flex flex-col gap-4 border p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-start gap-3">
+        <div
+          className={`flex size-9 shrink-0 items-center justify-center ${categoryMeta.badge}`}
+        >
+          <CategoryIcon className="size-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-medium">
+            {subscription.senderName ?? subscription.senderEmail}
+          </p>
+          <p className="text-muted-foreground truncate text-sm">
+            {subscription.senderEmail}
+          </p>
+          <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+            {subscription.emailCount} emails · since{' '}
+            {dateFormatter.format(new Date(subscription.firstSeenAt))} ·
+            last {dateFormatter.format(new Date(subscription.lastSeenAt))}
+            {subscription.unsubscribeMethod && (
+              <span
+                className="inline-flex items-center gap-0.5"
+                title={
+                  subscription.unsubscribeMethod === 'mailto'
+                    ? 'Unsubscribes by email'
+                    : subscription.supportsOneClick
+                      ? 'Supports one-click unsubscribe'
+                      : 'Unsubscribes via a web link'
+                }
+              >
+                · <MethodIcon className="size-3" />
+              </span>
+            )}
+          </p>
+        </div>
       </div>
+
       <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-        <Badge variant="secondary">
-          {CATEGORY_LABELS[subscription.category]}
-        </Badge>
-        <span className="text-muted-foreground text-xs">
-          {subscription.emailCount} emails · last{' '}
-          {dateFormatter.format(new Date(subscription.lastSeenAt))}
-        </span>
+        <Badge className={categoryMeta.badge}>{categoryMeta.label}</Badge>
 
         {subscription.status === 'unsubscribed' ? (
           <Badge variant="outline" className="gap-1">

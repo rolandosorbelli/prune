@@ -28,9 +28,9 @@ export function LandingPage() {
   const { signInWithGoogle } = useAuth()
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-16 px-6 py-16">
-      <div className="flex max-w-xl flex-col items-center gap-6 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+    <main className="flex flex-1 flex-col items-center justify-center gap-20 px-8 py-24">
+      <div className="flex max-w-xl flex-col items-center gap-7 text-center">
+        <h1 className="font-heading text-5xl font-medium tracking-tight sm:text-6xl">
           Clean up your inbox subscriptions
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -57,13 +57,13 @@ export function LandingPage() {
         )}
       </div>
 
-      <div className="grid w-full max-w-3xl grid-cols-1 gap-8 border-t pt-12 sm:grid-cols-3">
+      <div className="grid w-full max-w-3xl grid-cols-1 gap-10 border-t pt-14 sm:grid-cols-3">
         {FEATURES.map(({ icon: Icon, title, description }) => (
-          <div key={title} className="flex flex-col items-center gap-2 text-center">
-            <div className="bg-primary/10 text-primary flex size-10 items-center justify-center">
+          <div key={title} className="flex flex-col items-center gap-3 text-center">
+            <div className="bg-primary/10 text-primary flex size-11 items-center justify-center">
               <Icon className="size-5" />
             </div>
-            <h2 className="font-medium">{title}</h2>
+            <h2 className="font-heading text-base font-medium">{title}</h2>
             <p className="text-muted-foreground text-sm">{description}</p>
           </div>
         ))}
