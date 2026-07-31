@@ -4,6 +4,37 @@
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/fraunces";
 
+/*
+ * Theming system
+ * ---------------
+ * Every color below is a semantic token (named for what it is FOR --
+ * background, foreground, primary, border -- never for a literal color),
+ * and every component in the app reads colors exclusively through these
+ * tokens via Tailwind bg-, text-, and border- utilities. This is what
+ * makes the rest of the system possible: swapping or adding a theme never
+ * means touching component code, only the token values below.
+ *
+ * Three blocks define color, in increasing priority:
+ *   1. :root                              -- light theme, the default.
+ *   2. media prefers-color-scheme: dark   -- swaps to the dark theme
+ *      automatically based on the OS setting, with zero JavaScript, before
+ *      the first paint even happens (no flash of the wrong theme).
+ *   3. dot-dark / dot-light classes on the html element -- explicit
+ *      override, for a future manual theme toggle. Whenever that toggle
+ *      gets built, it only needs to add or remove that class and store a
+ *      preference; no CSS changes are needed.
+ *
+ * The dark class and the media query currently define the exact same
+ * values -- that duplication is intentional and typical for this pattern
+ * (the media query handles the automatic case, the class handles the
+ * explicit override case). Keep them in sync when editing either one.
+ *
+ * To add a further theme later (for example a brand or high-contrast theme):
+ * add one more class block, such as dot-theme-sepia, defining the same
+ * token names -- no media query needed unless it should also respond to a
+ * system setting, and no component file ever changes.
+ */
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -50,13 +81,16 @@
 }
 
 :root {
+    color-scheme: light;
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
-    --primary: var(--color-violet-500);
+    /* violet-600, not -500: -500 measures ~4.1:1 against white text,
+       under the 4.5:1 AA floor for normal-size text. -600 measures ~5.5:1. */
+    --primary: var(--color-violet-600);
     --primary-foreground: oklch(0.985 0 0);
     --secondary: oklch(0.97 0 0);
     --secondary-foreground: oklch(0.205 0 0);
@@ -67,7 +101,7 @@
     --destructive: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: var(--color-violet-500);
+    --ring: var(--color-violet-600);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -85,15 +119,21 @@
     --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+@media (prefers-color-scheme: dark) {
+  /* System-preference dark mode, unless a manual toggle has forced light. */
+  :root:not(.light) {
+    color-scheme: dark;
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
     --card-foreground: oklch(0.985 0 0);
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
-    --primary: var(--color-violet-500);
-    --primary-foreground: oklch(0.985 0 0);
+    /* violet-400, not -600: against a near-black page background, -400
+       measures ~6.4:1 as text and (paired with near-black button text
+       below) ~6.4:1 as a button fill too. -600 would fail both. */
+    --primary: var(--color-violet-400);
+    --primary-foreground: oklch(0.145 0 0);
     --secondary: oklch(0.269 0 0);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -103,7 +143,46 @@
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: var(--color-violet-500);
+    --ring: var(--color-violet-400);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --pattern-dot: oklch(0.26 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+}
+
+.dark {
+    /* Explicit override for a future manual toggle — see the block above
+       for the matching system-preference version and value rationale. */
+    color-scheme: dark;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: var(--color-violet-400);
+    --primary-foreground: oklch(0.145 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: var(--color-violet-400);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);

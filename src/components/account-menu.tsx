@@ -35,19 +35,25 @@ export function AccountMenu() {
           <AvatarFallback>{initialsFor(displayName, user.email)}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col gap-0.5">
+      <DropdownMenuContent align="end" className="w-72 p-2">
+        <DropdownMenuLabel className="px-2 py-2.5 font-normal">
+          <div className="flex flex-col gap-1">
             {displayName && (
               <span className="text-sm font-medium">{displayName}</span>
             )}
-            <span className="text-muted-foreground text-xs">
+            <span
+              className="text-muted-foreground truncate text-sm"
+              title={user.email}
+            >
               {user.email}
             </span>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => void signOut()}>
+        <DropdownMenuSeparator className="my-2" />
+        <DropdownMenuItem
+          className="px-2 py-2"
+          onClick={() => void signOut()}
+        >
           <LogOut />
           Sign out
         </DropdownMenuItem>
