@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Inbox, RefreshCw, Search } from 'lucide-react'
+import { Ban, Check, Inbox, Loader2, RefreshCw, Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { fetchSubscriptions, triggerScan } from '@/lib/subscriptions'
+import {
+  fetchSubscriptions,
+  ignoreSubscription,
+  triggerScan,
+  unsubscribeFrom,
+} from '@/lib/subscriptions'
 import type { Subscription, SubscriptionCategory } from '@/lib/types'
 
 const CATEGORY_LABELS: Record<SubscriptionCategory, string> = {
@@ -26,6 +31,8 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
 })
 
+type PendingAction = 'unsubscribe' | 'ignore'
+
 export function Dashboard() {
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(
     null,
@@ -36,6 +43,7 @@ export function Dashboard() {
   const [category, setCategory] = useState<SubscriptionCategory | 'all'>(
     'all',
   )
+  const [pending, setPending] = useState<Record<string, PendingAction>>({})
 
   useEffect(() => {
     void loadSubscriptions()
@@ -61,6 +69,54 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : 'Scan failed')
     } finally {
       setScanning(false)
+    }
+  }
+
+  async function handleUnsubscribe(sub: Subscription) {
+    setPending((p) => ({ ...p, [sub.id]: 'unsubscribe' }))
+    setError(null)
+    try {
+      const result = await unsubscribeFrom(sub.id)
+      if (result.method === 'manual' && result.target) {
+        window.open(result.target, '_blank', 'noopener,noreferrer')
+      }
+      setSubscriptions((prev) =>
+        prev?.map((s) =>
+          s.id === sub.id ? { ...s, status: 'unsubscribed' } : s,
+        ) ?? prev,
+      )
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `Couldn't unsubscribe from ${sub.senderEmail}: ${err.message}`
+          : `Couldn't unsubscribe from ${sub.senderEmail}`,
+      )
+    } finally {
+      setPending((p) => {
+        const next = { ...p }
+        delete next[sub.id]
+        return next
+      })
+    }
+  }
+
+  async function handleIgnore(sub: Subscription) {
+    setPending((p) => ({ ...p, [sub.id]: 'ignore' }))
+    setError(null)
+    try {
+      await ignoreSubscription(sub.id)
+      setSubscriptions((prev) =>
+        prev?.map((s) => (s.id === sub.id ? { ...s, status: 'ignored' } : s)) ??
+        prev,
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to ignore sender')
+    } finally {
+      setPending((p) => {
+        const next = { ...p }
+        delete next[sub.id]
+        return next
+      })
     }
   }
 
@@ -151,7 +207,13 @@ export function Dashboard() {
         ) : (
           <ul className="flex flex-col gap-3">
             {filtered.map((sub) => (
-              <SubscriptionRow key={sub.id} subscription={sub} />
+              <SubscriptionRow
+                key={sub.id}
+                subscription={sub}
+                pendingAction={pending[sub.id]}
+                onUnsubscribe={() => void handleUnsubscribe(sub)}
+                onIgnore={() => void handleIgnore(sub)}
+              />
             ))}
           </ul>
         )}
@@ -174,7 +236,19 @@ function EmptyState() {
   )
 }
 
-function SubscriptionRow({ subscription }: { subscription: Subscription }) {
+function SubscriptionRow({
+  subscription,
+  pendingAction,
+  onUnsubscribe,
+  onIgnore,
+}: {
+  subscription: Subscription
+  pendingAction: PendingAction | undefined
+  onUnsubscribe: () => void
+  onIgnore: () => void
+}) {
+  const isPending = pendingAction !== undefined
+
   return (
     <li className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
@@ -193,9 +267,48 @@ function SubscriptionRow({ subscription }: { subscription: Subscription }) {
           {subscription.emailCount} emails · last{' '}
           {dateFormatter.format(new Date(subscription.lastSeenAt))}
         </span>
-        <Button size="sm" variant="outline" disabled title="Coming soon">
-          Unsubscribe
-        </Button>
+
+        {subscription.status === 'unsubscribed' ? (
+          <Badge variant="outline" className="gap-1">
+            <Check className="size-3" />
+            Unsubscribed
+          </Badge>
+        ) : subscription.status === 'ignored' ? (
+          <Badge variant="outline" className="gap-1">
+            <Ban className="size-3" />
+            Ignored
+          </Badge>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isPending}
+              onClick={onIgnore}
+            >
+              {pendingAction === 'ignore' && (
+                <Loader2 className="animate-spin" />
+              )}
+              Ignore
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={isPending || !subscription.unsubscribeMethod}
+              title={
+                subscription.unsubscribeMethod
+                  ? undefined
+                  : 'No unsubscribe link found for this sender'
+              }
+              onClick={onUnsubscribe}
+            >
+              {pendingAction === 'unsubscribe' && (
+                <Loader2 className="animate-spin" />
+              )}
+              Unsubscribe
+            </Button>
+          </>
+        )}
       </div>
     </li>
   )

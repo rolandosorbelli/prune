@@ -19,4 +19,6 @@ export type Subscription = {
   lastSeenAt: string
   status: SubscriptionStatus
   unsubscribeMethod: UnsubscribeMethod
+  unsubscribeTarget: string | null
+  supportsOneClick: boolean
 }

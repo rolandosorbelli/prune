@@ -35,6 +35,7 @@ create table public.subscriptions (
   unsubscribe_method text
     check (unsubscribe_method in ('link', 'mailto', 'manual')),
   unsubscribe_target text,
+  supports_one_click boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, sender_email)

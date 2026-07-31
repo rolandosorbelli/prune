@@ -11,6 +11,8 @@ type SubscriptionRow = {
   last_seen_at: string
   status: Subscription['status']
   unsubscribe_method: Subscription['unsubscribeMethod']
+  unsubscribe_target: string | null
+  supports_one_click: boolean
 }
 
 function mapRow(row: SubscriptionRow): Subscription {
@@ -24,6 +26,8 @@ function mapRow(row: SubscriptionRow): Subscription {
     lastSeenAt: row.last_seen_at,
     status: row.status,
     unsubscribeMethod: row.unsubscribe_method,
+    unsubscribeTarget: row.unsubscribe_target,
+    supportsOneClick: row.supports_one_click,
   }
 }
 
@@ -31,7 +35,7 @@ export async function fetchSubscriptions(): Promise<Subscription[]> {
   const { data, error } = await supabase
     .from('subscriptions')
     .select(
-      'id, sender_email, sender_name, category, email_count, first_seen_at, last_seen_at, status, unsubscribe_method',
+      'id, sender_email, sender_name, category, email_count, first_seen_at, last_seen_at, status, unsubscribe_method, unsubscribe_target, supports_one_click',
     )
     .order('email_count', { ascending: false })
 
@@ -52,4 +56,32 @@ export async function triggerScan(): Promise<ScanResult> {
   if (error) throw error
   if (!data) throw new Error('Scan returned no result')
   return data
+}
+
+export type UpdateSubscriptionResult = {
+  status: 'unsubscribed' | 'ignored'
+  method?: 'auto' | 'manual'
+  unsubscribeMethod?: 'link' | 'mailto'
+  target?: string
+}
+
+async function updateSubscription(
+  subscriptionId: string,
+  action: 'unsubscribe' | 'ignore',
+): Promise<UpdateSubscriptionResult> {
+  const { data, error } = await supabase.functions.invoke<UpdateSubscriptionResult>(
+    'update-subscription',
+    { method: 'POST', body: { subscriptionId, action } },
+  )
+  if (error) throw error
+  if (!data) throw new Error('No response from server')
+  return data
+}
+
+export function unsubscribeFrom(subscriptionId: string) {
+  return updateSubscription(subscriptionId, 'unsubscribe')
+}
+
+export function ignoreSubscription(subscriptionId: string) {
+  return updateSubscription(subscriptionId, 'ignore')
 }

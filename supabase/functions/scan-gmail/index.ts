@@ -19,6 +19,7 @@ type Aggregate = {
   lastSeen: string
   unsubscribeMethod: 'link' | 'mailto' | null
   unsubscribeTarget: string | null
+  supportsOneClick: boolean
 }
 
 Deno.serve(async (req) => {
@@ -175,6 +176,7 @@ async function scanMessages(
         lastSeen: metadata.date,
         unsubscribeMethod: metadata.unsubscribeMethod,
         unsubscribeTarget: metadata.unsubscribeTarget,
+        supportsOneClick: metadata.supportsOneClick,
       })
       return
     }
@@ -194,6 +196,7 @@ type MessageMetadata = {
   date: string
   unsubscribeMethod: 'link' | 'mailto' | null
   unsubscribeTarget: string | null
+  supportsOneClick: boolean
 }
 
 async function getMessageMetadata(
@@ -206,6 +209,7 @@ async function getMessageMetadata(
   url.searchParams.set('format', 'metadata')
   url.searchParams.append('metadataHeaders', 'From')
   url.searchParams.append('metadataHeaders', 'List-Unsubscribe')
+  url.searchParams.append('metadataHeaders', 'List-Unsubscribe-Post')
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -218,6 +222,9 @@ async function getMessageMetadata(
   const fromHeader = headers.find((h) => h.name === 'From')?.value
   const listUnsubscribeHeader = headers.find(
     (h) => h.name === 'List-Unsubscribe',
+  )?.value
+  const listUnsubscribePostHeader = headers.find(
+    (h) => h.name === 'List-Unsubscribe-Post',
   )?.value
 
   // We only care about messages that are actually unsubscribable.
@@ -233,6 +240,9 @@ async function getMessageMetadata(
     date: new Date(Number(data.internalDate)).toISOString(),
     unsubscribeMethod: method,
     unsubscribeTarget: target,
+    supportsOneClick:
+      method === 'link' &&
+      (listUnsubscribePostHeader ?? '').includes('List-Unsubscribe=One-Click'),
   }
 }
 
@@ -328,6 +338,7 @@ async function upsertSubscriptions(
       status: existing && existing.status !== 'active' ? existing.status : 'active',
       unsubscribe_method: agg.unsubscribeMethod,
       unsubscribe_target: agg.unsubscribeTarget,
+      supports_one_click: agg.supportsOneClick,
       updated_at: new Date().toISOString(),
     }
   })
