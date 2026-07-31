@@ -12,7 +12,7 @@ function App() {
 
       {loading ? null : user ? <Dashboard /> : <LandingPage />}
 
-      <footer className="border-t">
+      <footer className="bg-background border-t">
         <div className="text-muted-foreground mx-auto w-full max-w-6xl px-8 py-5 text-center text-sm">
           Prune &mdash; built with React, Vite &amp; TypeScript
         </div>

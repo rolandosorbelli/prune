@@ -214,7 +214,7 @@ export function Dashboard() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center gap-3 border border-dashed py-20 text-center">
+    <div className="bg-background flex flex-col items-center gap-3 border border-dashed py-20 text-center">
       <Inbox className="text-muted-foreground size-8" />
       <div>
         <p className="font-medium">No subscriptions found yet</p>
@@ -243,7 +243,7 @@ function SubscriptionRow({
   const MethodIcon = subscription.unsubscribeMethod === 'mailto' ? Mail : Link2
 
   return (
-    <li className="flex flex-col gap-4 border p-5 sm:flex-row sm:items-center sm:justify-between">
+    <li className="bg-card flex flex-col gap-4 border p-5 shadow-sm transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <div
           className={`flex size-9 shrink-0 items-center justify-center ${categoryMeta.badge}`}

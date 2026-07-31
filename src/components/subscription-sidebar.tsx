@@ -28,7 +28,7 @@ export function SubscriptionSidebar({
   totalCount,
 }: Props) {
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-8 lg:w-56">
+    <aside className="bg-background flex w-full shrink-0 flex-col gap-8 border p-5 shadow-sm lg:w-60">
       <div className="relative">
         <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
         <Input
