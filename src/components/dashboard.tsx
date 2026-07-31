@@ -144,6 +144,17 @@ export function Dashboard() {
   const isLoading = subscriptions === null
   const hasSubscriptions = (subscriptions?.length ?? 0) > 0
 
+  // When no status filter is applied, keep active subscriptions as the
+  // primary list and tuck unsubscribed/ignored ones into a smaller
+  // section below rather than mixing them together.
+  const splitByStatus = status === 'all'
+  const activeItems = splitByStatus
+    ? filtered.filter((s) => s.status === 'active')
+    : filtered
+  const settledItems = splitByStatus
+    ? filtered.filter((s) => s.status !== 'active')
+    : []
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-10 px-8 py-12 lg:flex-row lg:items-start lg:gap-16">
       <SubscriptionSidebar
@@ -194,17 +205,44 @@ export function Dashboard() {
               No subscriptions match your filters.
             </p>
           ) : (
-            <ul className="flex flex-col gap-4">
-              {filtered.map((sub) => (
-                <SubscriptionRow
-                  key={sub.id}
-                  subscription={sub}
-                  pendingAction={pending[sub.id]}
-                  onUnsubscribe={() => void handleUnsubscribe(sub)}
-                  onIgnore={() => void handleIgnore(sub)}
-                />
-              ))}
-            </ul>
+            <>
+              {activeItems.length > 0 && (
+                <ul className="flex flex-col gap-4">
+                  {activeItems.map((sub) => (
+                    <SubscriptionRow
+                      key={sub.id}
+                      subscription={sub}
+                      pendingAction={pending[sub.id]}
+                      onUnsubscribe={() => void handleUnsubscribe(sub)}
+                      onIgnore={() => void handleIgnore(sub)}
+                    />
+                  ))}
+                </ul>
+              )}
+
+              {settledItems.length > 0 && (
+                <div
+                  className={
+                    activeItems.length > 0 ? 'mt-10 border-t pt-6' : ''
+                  }
+                >
+                  <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
+                    Unsubscribed &amp; ignored ({settledItems.length})
+                  </h2>
+                  <ul className="flex flex-col gap-4">
+                    {settledItems.map((sub) => (
+                      <SubscriptionRow
+                        key={sub.id}
+                        subscription={sub}
+                        pendingAction={pending[sub.id]}
+                        onUnsubscribe={() => void handleUnsubscribe(sub)}
+                        onIgnore={() => void handleIgnore(sub)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
