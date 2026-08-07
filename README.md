@@ -37,9 +37,10 @@ Edge function unit tests (needs the [Deno CLI](https://deno.com)):
 cd supabase/functions && deno task test
 ```
 
-## Backend setup (Supabase + Google)
+## Backend setup (Supabase + Google + Microsoft)
 
-One-time setup, done through the Supabase Dashboard and Google Cloud Console:
+One-time setup, done through the Supabase Dashboard, Google Cloud Console,
+and Azure Portal:
 
 1. **Supabase project** — create one at supabase.com, then run `supabase/schema.sql`
    in the SQL Editor to create the `connected_accounts`, `subscriptions`, and
@@ -50,40 +51,64 @@ One-time setup, done through the Supabase Dashboard and Google Cloud Console:
    `.../auth/gmail.readonly` scope added, and create an OAuth 2.0 Client ID
    (Web application) with redirect URI
    `https://<project-ref>.supabase.co/auth/v1/callback`.
-3. **Supabase Auth → Providers → Google** — paste the Google Client ID and
-   Secret in.
-4. **Supabase Auth → URL Configuration → Redirect URLs** — add every origin
+3. **Azure app registration** — in Entra ID, register an app with
+   "Accounts in any organizational directory and personal Microsoft
+   accounts" as the supported account type, the same redirect URI as
+   above, and the **Mail.Read** delegated Graph API permission.
+4. **Supabase Auth → Providers** — enable **Google** and **Azure**, pasting
+   in each provider's Client ID and Secret. Leave the Azure tenant field
+   blank/default (`common`) so any Microsoft account can sign in, not just
+   one organization.
+5. **Supabase Auth → Settings** — enable **manual linking**. This is what
+   lets a signed-in user connect a second provider from the account menu
+   instead of only being able to sign in with one.
+6. **Supabase Auth → URL Configuration → Redirect URLs** — add every origin
    the app will run on, e.g. `http://localhost:5173/**` and
    `https://<your-vercel-domain>/**`.
-5. **Edge function secrets** — set these via `supabase secrets set` or the
+7. **Edge function secrets** — set these via `supabase secrets set` or the
    Dashboard:
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — same values as step 2, used
      to refresh Gmail access tokens server-side.
+   - `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` — same values as step 3, used
+     to refresh Outlook access tokens server-side.
    - `TOKEN_ENCRYPTION_KEY` — a base64-encoded 32-byte key
      (`openssl rand -base64 32`) used to encrypt refresh tokens at rest.
-6. **Deploy the edge functions**:
+8. **Deploy the edge functions**:
    ```bash
    supabase functions deploy connect-gmail
+   supabase functions deploy connect-outlook
    supabase functions deploy scan-gmail
+   supabase functions deploy scan-outlook
    supabase functions deploy update-subscription
    ```
-7. **Frontend env** — add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to
+9. **Frontend env** — add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to
    `.env.local` (see `.env.example`), and to your Vercel project's
    environment variables for the deployed site.
 
 ## How it works
 
-- **`connect-gmail`** runs once, right after a user's first Google sign-in,
-  to store their encrypted Gmail refresh token.
-- **`scan-gmail`** uses that token to list inbox messages from the last 90
-  days (capped at 300) in the Promotions, Social, Updates, and Forums
-  categories, keeps only the ones with a `List-Unsubscribe` header, and
-  aggregates them by sender into the `subscriptions` table.
+- **`connect-gmail`/`connect-outlook`** run once, right after a user first
+  signs in with (or links) that provider, to store their encrypted refresh
+  token. `connect-outlook` also validates the token against Microsoft
+  immediately, so a bad token fails loudly at connect time instead of
+  silently during a later scan.
+- **`scan-gmail`** lists inbox messages from the last 90 days (capped at
+  300) in the Promotions, Social, Updates, and Forums categories.
+  **`scan-outlook`** does the same over Microsoft Graph, but since Outlook
+  has no equivalent of Gmail's category labels, it classifies senders with
+  a domain/keyword heuristic (`_shared/categorize.ts`) instead. Both keep
+  only messages with a `List-Unsubscribe` header and aggregate them by
+  sender into the `subscriptions` table, tagged with which provider they
+  came from.
 - **`update-subscription`** handles the Unsubscribe and Ignore buttons. When
   a sender supports RFC 8058 one-click unsubscribe (`List-Unsubscribe-Post`
   header), it's done entirely server-side with no tab opening. Otherwise the
   client opens the sender's unsubscribe link or mail client to finish the
   job.
+- A user can connect **both** Gmail and Outlook to the same account (sign in
+  with one, then "Connect Outlook"/"Connect Gmail" from the account menu —
+  this uses Supabase's identity linking, not a second sign-in). "Scan inbox"
+  fans out to every connected provider at once.
 
 ## Deployment
 
@@ -94,7 +119,7 @@ the Vercel project settings.
 
 ## Status
 
-Phases 1–7 complete: sign-in, Gmail scanning, the subscriptions dashboard,
-unsubscribe/ignore actions, and a deployed test URL are all live. Next up:
-a second email provider (Outlook/Microsoft Graph) and broader polish based
-on tester feedback.
+Sign-in, Gmail and Outlook scanning, multi-provider account linking, the
+subscriptions dashboard, unsubscribe/ignore actions, light/dark theming,
+and a deployed test URL are all live. Next up: broader polish based on
+tester feedback, and possibly a third provider.

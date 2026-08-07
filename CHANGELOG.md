@@ -2,7 +2,26 @@
 
 Notable changes to Prune, in reverse chronological order, grouped by month.
 
+## August 2026
+
+### 2026-08-07 — Outlook as a second email provider
+You can now connect Outlook alongside (or instead of) Gmail. Sign in with
+either one from the landing page, or connect the other later from the
+account menu without losing your existing account and its subscriptions.
+Everything shows up together in one list, with a badge marking which
+mailbox each subscription came from.
+
 ## July 2026
+
+### 2026-07-31 — Light/dark theme, following your system setting
+Prune now follows your device's light/dark mode automatically, with no
+flash of the wrong theme on load. A toggle in the account menu lets you
+switch manually if you'd rather not match your system setting.
+
+### 2026-07-31 — Faster initial load
+Reworked how the app loads so signed-out visitors only download what the
+landing page actually needs — the dashboard and everything it depends on
+now loads separately, only once you're signed in.
 
 ### 2026-07-31 — Unsubscribed and ignored subscriptions get their own section
 The main list now shows only active subscriptions by default. Anything you've
