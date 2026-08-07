@@ -63,20 +63,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       (event, nextSession) => {
+        // TEMP diagnostic: SIGNED_IN/USER_UPDATED turned out not to be a
+        // reliable signal for when linkIdentity() actually delivers fresh
+        // provider tokens — logging every event's name and whether tokens
+        // are present until we've confirmed what actually fires. Remove
+        // once that's settled.
+        console.log('[auth]', event, {
+          hasProviderToken: Boolean(nextSession?.provider_token),
+          hasProviderRefreshToken: Boolean(nextSession?.provider_refresh_token),
+        })
+
         setSession(nextSession)
 
-        // SIGNED_IN covers the primary sign-in flow. USER_UPDATED is
-        // Supabase's event after linkIdentity() completes and adds a
-        // second provider to an already-signed-in user — both can leave
-        // fresh provider_token/provider_refresh_token on the session.
-        // NOTE: the exact event linkIdentity fires isn't something we've
-        // verified against a live Azure app yet — if linking an account
-        // doesn't end up calling connect-outlook, check here first.
-        if (
-          (event === 'SIGNED_IN' || event === 'USER_UPDATED') &&
-          nextSession?.provider_refresh_token &&
-          nextSession.provider_token
-        ) {
+        // Trigger on token presence rather than a specific event name —
+        // provider_token/provider_refresh_token are only ever populated
+        // immediately after an actual OAuth exchange (sign-in or link),
+        // never on routine session refreshes, so this is safe regardless
+        // of which event name ends up carrying them.
+        if (nextSession?.provider_refresh_token && nextSession.provider_token) {
           void persistProviderConnection(nextSession, setAuthError)
         }
       },
