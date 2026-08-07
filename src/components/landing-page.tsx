@@ -14,7 +14,7 @@ const FEATURES = [
     icon: ShieldCheck,
     title: 'Read-only access',
     description:
-      "We only read message headers to find senders — never your email content.",
+      "We scan message headers to find senders. If a sender's unsubscribe link can't be found that way, clicking Unsubscribe checks that one email's body for a link — nothing is ever stored beyond the link itself.",
   },
   {
     icon: Zap,

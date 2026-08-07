@@ -245,7 +245,9 @@ async function upsertSubscriptions(
 
   const { data: existingRows } = await admin
     .from('subscriptions')
-    .select('sender_email, status, first_seen_at')
+    .select(
+      'sender_email, status, first_seen_at, unsubscribe_method, unsubscribe_target, supports_one_click',
+    )
     .eq('user_id', userId)
     .eq('provider', PROVIDER)
 
@@ -258,7 +260,13 @@ async function upsertSubscriptions(
 
   const payload = aggregates.map((agg) => {
     const existing = existingByEmail.get(agg.senderEmail) as
-      | { status: string; first_seen_at: string }
+      | {
+          status: string
+          first_seen_at: string
+          unsubscribe_method: string | null
+          unsubscribe_target: string | null
+          supports_one_click: boolean
+        }
       | undefined
 
     return {
@@ -275,9 +283,15 @@ async function upsertSubscriptions(
           : agg.firstSeen,
       last_seen_at: agg.lastSeen,
       status: existing && existing.status !== 'active' ? existing.status : 'active',
-      unsubscribe_method: agg.unsubscribeMethod,
-      unsubscribe_target: agg.unsubscribeTarget,
-      supports_one_click: agg.supportsOneClick,
+      // A header-based method found this scan always wins. If this scan
+      // found nothing but an unsubscribe link was previously found live
+      // (see update-subscription's on-demand body search), keep that
+      // rather than clobbering it back to null.
+      unsubscribe_method: agg.unsubscribeMethod ?? existing?.unsubscribe_method ?? null,
+      unsubscribe_target: agg.unsubscribeTarget ?? existing?.unsubscribe_target ?? null,
+      supports_one_click: agg.unsubscribeMethod
+        ? agg.supportsOneClick
+        : (existing?.supports_one_click ?? false),
       updated_at: new Date().toISOString(),
     }
   })

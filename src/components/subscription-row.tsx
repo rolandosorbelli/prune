@@ -101,11 +101,11 @@ export function SubscriptionRow({
             <Button
               size="sm"
               variant="outline"
-              disabled={isPending || !subscription.unsubscribeMethod}
+              disabled={isPending}
               title={
                 subscription.unsubscribeMethod
                   ? undefined
-                  : 'No unsubscribe link found for this sender'
+                  : 'No unsubscribe link found yet — clicking will search this sender’s most recent email for one'
               }
               onClick={onUnsubscribe}
             >
