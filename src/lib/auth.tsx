@@ -16,6 +16,8 @@ type AuthContextValue = {
   session: Session | null
   user: User | null
   loading: boolean
+  authError: string | null
+  clearAuthError: () => void
   signInWithGoogle: () => Promise<void>
   signInWithMicrosoft: () => Promise<void>
   linkGoogleAccount: () => Promise<void>
@@ -35,8 +37,23 @@ const CONNECT_FUNCTION_BY_SLUG: Record<string, string> = {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Sign-in and linkIdentity redirects land back here with ?error=...
+    // (and the same params again in the # fragment) when they fail —
+    // e.g. linking an identity that's already attached to a different
+    // user. Surface it instead of leaving the UI looking like nothing
+    // happened, and strip it from the URL so a refresh doesn't re-show it.
+    const fromQuery = new URLSearchParams(window.location.search)
+    const fromHash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const description =
+      fromQuery.get('error_description') ?? fromHash.get('error_description')
+    if (description) {
+      setAuthError(description)
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session)
       setLoading(false)
@@ -127,12 +144,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut()
   }
 
+  function clearAuthError() {
+    setAuthError(null)
+  }
+
   return (
     <AuthContext.Provider
       value={{
         session,
         user: session?.user ?? null,
         loading,
+        authError,
+        clearAuthError,
         signInWithGoogle,
         signInWithMicrosoft,
         linkGoogleAccount,
