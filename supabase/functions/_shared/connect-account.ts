@@ -4,11 +4,19 @@ import { createAdminClient, getUserFromRequest } from './supabase-admin.ts'
 
 // Shared by every connect-* function: capture and encrypt a refresh token
 // right after a provider grants one, and upsert it into connected_accounts.
-// The only thing that differs per provider is the provider name and the
-// scopes granted.
+// The only thing that differs per provider is the provider name, the
+// scopes granted, and (optionally) how to sanity-check the token.
 export async function handleConnectAccount(
   req: Request,
-  config: { provider: string; scopes: string[] },
+  config: {
+    provider: string
+    scopes: string[]
+    // If provided, called with the raw refresh token before it's stored.
+    // Should throw if the token doesn't actually work — this turns a
+    // silent "stored something, fails later during scan" failure into an
+    // immediate, clear error back to the client.
+    validateToken?: (refreshToken: string) => Promise<void>
+  },
 ): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -22,6 +30,18 @@ export async function handleConnectAccount(
   const { providerRefreshToken, providerEmail } = await req.json()
   if (!providerRefreshToken || typeof providerRefreshToken !== 'string') {
     return jsonResponse({ error: 'Missing providerRefreshToken' }, 400)
+  }
+
+  if (config.validateToken) {
+    try {
+      await config.validateToken(providerRefreshToken)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error'
+      return jsonResponse(
+        { error: `Received an unusable refresh token from ${config.provider}: ${message}` },
+        400,
+      )
+    }
   }
 
   const { ciphertext, iv } = await encryptToken(providerRefreshToken)

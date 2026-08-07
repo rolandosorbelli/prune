@@ -22,6 +22,8 @@ type AuthContextValue = {
   signInWithMicrosoft: () => Promise<void>
   linkGoogleAccount: () => Promise<void>
   linkMicrosoftAccount: () => Promise<void>
+  reconnectGoogleAccount: () => Promise<void>
+  reconnectMicrosoftAccount: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -75,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           nextSession?.provider_refresh_token &&
           nextSession.provider_token
         ) {
-          void persistProviderConnection(nextSession)
+          void persistProviderConnection(nextSession, setAuthError)
         }
       },
     )
@@ -140,6 +142,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  // Supabase refuses to link an identity that's already linked — even to
+  // the same user — so getting a fresh token capture (e.g. after
+  // rotating a provider's client secret) means unlinking first, then
+  // linking again as one action, rather than linking alone.
+  async function unlinkProvider(slug: 'google' | 'azure') {
+    const identity = session?.user.identities?.find(
+      (i) => i.provider === slug,
+    )
+    if (!identity) return
+    const { error } = await supabase.auth.unlinkIdentity(identity)
+    if (error) throw error
+  }
+
+  async function reconnectGoogleAccount() {
+    try {
+      await unlinkProvider('google')
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Failed to unlink Google')
+      return
+    }
+    await linkGoogleAccount()
+  }
+
+  async function reconnectMicrosoftAccount() {
+    try {
+      await unlinkProvider('azure')
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Failed to unlink Microsoft')
+      return
+    }
+    await linkMicrosoftAccount()
+  }
+
   async function signOut() {
     await supabase.auth.signOut()
   }
@@ -160,6 +195,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithMicrosoft,
         linkGoogleAccount,
         linkMicrosoftAccount,
+        reconnectGoogleAccount,
+        reconnectMicrosoftAccount,
         signOut,
       }}
     >
@@ -177,7 +214,10 @@ export function useAuth() {
 // A provider only returns a refresh token on the very first consent, so
 // we hand it to the matching connect-* edge function as soon as we see
 // one, whichever provider it came from.
-async function persistProviderConnection(session: Session) {
+async function persistProviderConnection(
+  session: Session,
+  setAuthError: (message: string | null) => void,
+) {
   const slug = session.user.app_metadata?.provider as string | undefined
   const connectFunction = slug ? CONNECT_FUNCTION_BY_SLUG[slug] : undefined
   if (!connectFunction) return
@@ -186,11 +226,31 @@ async function persistProviderConnection(session: Session) {
     (identity) => identity.provider === slug,
   )?.identity_data?.email as string | undefined
 
-  await supabase.functions.invoke(connectFunction, {
+  const { error } = await supabase.functions.invoke(connectFunction, {
     body: {
       providerToken: session.provider_token,
       providerRefreshToken: session.provider_refresh_token,
       providerEmail,
     },
   })
+
+  if (error) setAuthError(await extractFunctionErrorMessage(error))
+}
+
+// supabase-js's functions.invoke() collapses any non-2xx response into a
+// generic "Edge Function returned a non-2xx status code" — our own
+// {error: "..."} body is on the underlying Response, at error.context,
+// not surfaced automatically. Same pattern worth reusing anywhere else
+// invoke() errors get shown directly to a user.
+async function extractFunctionErrorMessage(error: {
+  message: string
+  context?: Response
+}): Promise<string> {
+  try {
+    const body = await error.context?.clone().json()
+    if (typeof body?.error === 'string') return body.error
+  } catch {
+    // fall through to the generic message below
+  }
+  return error.message
 }

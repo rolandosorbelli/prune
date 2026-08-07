@@ -15,6 +15,14 @@ const LINK_ACTION_BY_PROVIDER: Record<
   outlook: 'linkMicrosoftAccount',
 }
 
+const RECONNECT_ACTION_BY_PROVIDER: Record<
+  Provider,
+  'reconnectGoogleAccount' | 'reconnectMicrosoftAccount'
+> = {
+  gmail: 'reconnectGoogleAccount',
+  outlook: 'reconnectMicrosoftAccount',
+}
+
 export function ConnectedAccountsSection() {
   const auth = useAuth()
   const connected = getConnectedProviders(auth.user)
@@ -33,10 +41,10 @@ export function ConnectedAccountsSection() {
           <DropdownMenuItem
             key={provider}
             className="px-2 py-1.5"
-            title="Reconnect (re-grants access and captures a fresh token)"
+            title="Reconnect (unlinks and re-grants access to capture a fresh token)"
             onSelect={(e) => {
               e.preventDefault()
-              void auth[LINK_ACTION_BY_PROVIDER[provider]]()
+              void auth[RECONNECT_ACTION_BY_PROVIDER[provider]]()
             }}
           >
             <Icon className="text-muted-foreground size-4" />
