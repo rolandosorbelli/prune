@@ -1,4 +1,4 @@
-import { Check, Plus } from 'lucide-react'
+import { Check, Plus, RefreshCw } from 'lucide-react'
 import { DropdownMenuItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/lib/auth'
 import { getConnectedProviders } from '@/lib/providers'
@@ -30,14 +30,20 @@ export function ConnectedAccountsSection() {
         const meta = PROVIDER_META[provider]
         const Icon = meta.icon
         return (
-          <div
+          <DropdownMenuItem
             key={provider}
-            className="flex items-center gap-2 px-2 py-1.5 text-sm"
+            className="px-2 py-1.5"
+            title="Reconnect (re-grants access and captures a fresh token)"
+            onSelect={(e) => {
+              e.preventDefault()
+              void auth[LINK_ACTION_BY_PROVIDER[provider]]()
+            }}
           >
             <Icon className="text-muted-foreground size-4" />
             <span>{meta.label}</span>
             <Check className="text-muted-foreground ml-auto size-3.5" />
-          </div>
+            <RefreshCw className="text-muted-foreground size-3.5" />
+          </DropdownMenuItem>
         )
       })}
 
