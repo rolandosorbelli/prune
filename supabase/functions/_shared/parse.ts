@@ -23,6 +23,15 @@ export function parseListUnsubscribe(value: string): {
   const mailtoLink = links.find((l) => l.startsWith('mailto:'))
   if (mailtoLink) return { method: 'mailto', target: mailtoLink }
 
+  // Per RFC 8058 the value should be angle-bracket-wrapped URIs, but some
+  // senders send a bare URL/address instead — worth still trying to use
+  // rather than treating as unusable.
+  const bareHttp = value.match(/https?:\/\/[^\s,;]+/)
+  if (bareHttp) return { method: 'link', target: bareHttp[0] }
+
+  const bareMailto = value.match(/mailto:[^\s,;>]+/)
+  if (bareMailto) return { method: 'mailto', target: bareMailto[0] }
+
   return { method: null, target: null }
 }
 

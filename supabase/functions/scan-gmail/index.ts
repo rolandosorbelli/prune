@@ -4,6 +4,10 @@ import { createAdminClient, getUserFromRequest } from '../_shared/supabase-admin
 import { refreshAccessToken } from '../_shared/oauth.ts'
 import { mapWithConcurrency } from '../_shared/concurrency.ts'
 import {
+  findUnsubscribeLinkInHtml,
+  findUnsubscribeLinkInText,
+} from '../_shared/body-unsubscribe.ts'
+import {
   categoryFromLabels,
   isOneClickSupported,
   parseFromHeader,
@@ -221,7 +225,16 @@ async function getMessageMetadata(
   if (!fromHeader || !listUnsubscribeHeader) return null
 
   const { name, email } = parseFromHeader(fromHeader)
-  const { method, target } = parseListUnsubscribe(listUnsubscribeHeader)
+  let { method, target } = parseListUnsubscribe(listUnsubscribeHeader)
+
+  // The header exists but didn't parse into a usable link/mailto — some
+  // senders put a non-standard value there while still having a normal
+  // "Unsubscribe" link in the email body. Only fetch the body for this
+  // narrow fallback case, and only ever keep the URL we find, nothing else.
+  if (!method) {
+    target = await findUnsubscribeLinkInBody(accessToken, id)
+    if (target) method = 'link'
+  }
 
   return {
     senderEmail: email,
@@ -232,6 +245,54 @@ async function getMessageMetadata(
     unsubscribeTarget: target,
     supportsOneClick: isOneClickSupported(method, listUnsubscribePostHeader),
   }
+}
+
+// deno-lint-ignore no-explicit-any
+function findGmailBodyPart(part: any, mimeType: string): string | null {
+  if (part?.mimeType === mimeType && part.body?.data) {
+    return part.body.data
+  }
+  for (const child of part?.parts ?? []) {
+    const found = findGmailBodyPart(child, mimeType)
+    if (found) return found
+  }
+  return null
+}
+
+function decodeGmailBase64(data: string): string {
+  const base64 = data.replace(/-/g, '+').replace(/_/g, '/')
+  const binary = atob(base64)
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
+async function findUnsubscribeLinkInBody(
+  accessToken: string,
+  id: string,
+): Promise<string | null> {
+  const url = new URL(
+    `https://www.googleapis.com/gmail/v1/users/me/messages/${id}`,
+  )
+  url.searchParams.set('format', 'full')
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (!response.ok) return null
+  const data = await response.json()
+
+  const htmlData = findGmailBodyPart(data.payload, 'text/html')
+  if (htmlData) {
+    const link = findUnsubscribeLinkInHtml(decodeGmailBase64(htmlData))
+    if (link) return link
+  }
+
+  const textData = findGmailBodyPart(data.payload, 'text/plain')
+  if (textData) {
+    return findUnsubscribeLinkInText(decodeGmailBase64(textData))
+  }
+
+  return null
 }
 
 // deno-lint-ignore no-explicit-any

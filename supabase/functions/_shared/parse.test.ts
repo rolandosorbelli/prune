@@ -54,6 +54,27 @@ Deno.test('parseListUnsubscribe - no recognizable links', () => {
   })
 })
 
+Deno.test('parseListUnsubscribe - bare URL without angle brackets', () => {
+  assertEquals(parseListUnsubscribe('https://acme.com/unsubscribe?u=123'), {
+    method: 'link',
+    target: 'https://acme.com/unsubscribe?u=123',
+  })
+})
+
+Deno.test('parseListUnsubscribe - bare mailto without angle brackets', () => {
+  assertEquals(parseListUnsubscribe('mailto:unsub@acme.com'), {
+    method: 'mailto',
+    target: 'mailto:unsub@acme.com',
+  })
+})
+
+Deno.test('parseListUnsubscribe - bracketed link still preferred over bare text', () => {
+  assertEquals(
+    parseListUnsubscribe('<https://acme.com/unsub>, see https://acme.com/help too'),
+    { method: 'link', target: 'https://acme.com/unsub' },
+  )
+})
+
 Deno.test('categoryFromLabels - maps known Gmail categories', () => {
   assertEquals(categoryFromLabels(['INBOX', 'CATEGORY_PROMOTIONS']), 'promotions')
   assertEquals(categoryFromLabels(['CATEGORY_SOCIAL']), 'social')
