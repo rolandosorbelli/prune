@@ -36,6 +36,26 @@ const CONNECT_FUNCTION_BY_SLUG: Record<string, string> = {
   azure: 'connect-outlook',
 }
 
+// session.user.app_metadata.provider turned out NOT to reliably reflect
+// "whichever provider was just authenticated" once an account has more
+// than one linked provider — it stayed pinned to the wrong value and
+// caused Google's refresh token to be sent to connect-outlook (and vice
+// versa). OAuth redirects are full page reloads, so a plain JS variable
+// can't survive the round trip either. sessionStorage does: record which
+// provider a sign-in/link action is *for* right before redirecting, then
+// read (and clear) that instead of trusting ambient session state.
+const PENDING_PROVIDER_KEY = 'prune-pending-provider'
+
+function setPendingProvider(slug: 'google' | 'azure') {
+  sessionStorage.setItem(PENDING_PROVIDER_KEY, slug)
+}
+
+function takePendingProvider(): string | null {
+  const slug = sessionStorage.getItem(PENDING_PROVIDER_KEY)
+  sessionStorage.removeItem(PENDING_PROVIDER_KEY)
+  return slug
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,17 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
-      (event, nextSession) => {
-        // TEMP diagnostic: SIGNED_IN/USER_UPDATED turned out not to be a
-        // reliable signal for when linkIdentity() actually delivers fresh
-        // provider tokens — logging every event's name and whether tokens
-        // are present until we've confirmed what actually fires. Remove
-        // once that's settled.
-        console.log('[auth]', event, {
-          hasProviderToken: Boolean(nextSession?.provider_token),
-          hasProviderRefreshToken: Boolean(nextSession?.provider_refresh_token),
-        })
-
+      (_event, nextSession) => {
         setSession(nextSession)
 
         // Trigger on token presence rather than a specific event name —
@@ -90,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signInWithGoogle() {
+    setPendingProvider('google')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -105,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInWithMicrosoft() {
+    setPendingProvider('azure')
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
@@ -126,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // redirect (blocked, already-linked, anything) fails completely
   // silently. Every call site here needs to check it.
   async function linkGoogleAccount() {
+    setPendingProvider('google')
     const { error } = await supabase.auth.linkIdentity({
       provider: 'google',
       options: {
@@ -141,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function linkMicrosoftAccount() {
+    setPendingProvider('azure')
     const { error } = await supabase.auth.linkIdentity({
       provider: 'azure',
       options: {
@@ -230,7 +244,7 @@ async function persistProviderConnection(
   session: Session,
   setAuthError: (message: string | null) => void,
 ) {
-  const slug = session.user.app_metadata?.provider as string | undefined
+  const slug = takePendingProvider()
   const connectFunction = slug ? CONNECT_FUNCTION_BY_SLUG[slug] : undefined
   if (!connectFunction) return
 
