@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase'
-import type { Subscription } from '@/lib/types'
+import type { Provider, Subscription } from '@/lib/types'
 
 type SubscriptionRow = {
   id: string
+  provider: Subscription['provider']
   sender_email: string
   sender_name: string | null
   category: Subscription['category']
@@ -18,6 +19,7 @@ type SubscriptionRow = {
 function mapRow(row: SubscriptionRow): Subscription {
   return {
     id: row.id,
+    provider: row.provider,
     senderEmail: row.sender_email,
     senderName: row.sender_name,
     category: row.category,
@@ -35,7 +37,7 @@ export async function fetchSubscriptions(): Promise<Subscription[]> {
   const { data, error } = await supabase
     .from('subscriptions')
     .select(
-      'id, sender_email, sender_name, category, email_count, first_seen_at, last_seen_at, status, unsubscribe_method, unsubscribe_target, supports_one_click',
+      'id, provider, sender_email, sender_name, category, email_count, first_seen_at, last_seen_at, status, unsubscribe_method, unsubscribe_target, supports_one_click',
     )
     .order('email_count', { ascending: false })
 
@@ -46,16 +48,40 @@ export async function fetchSubscriptions(): Promise<Subscription[]> {
 export type ScanResult = {
   messagesScanned: number
   subscriptionsFound: number
+  errors: string[]
 }
 
-export async function triggerScan(): Promise<ScanResult> {
-  const { data, error } = await supabase.functions.invoke<ScanResult>(
-    'scan-gmail',
-    { method: 'POST' },
+const SCAN_FUNCTION_BY_PROVIDER: Record<Provider, string> = {
+  gmail: 'scan-gmail',
+  outlook: 'scan-outlook',
+}
+
+// Scans every connected provider in parallel and combines the results —
+// the dashboard shows one unified list, so "Scan inbox" checks everything
+// connected rather than requiring a scan per mailbox.
+export async function triggerScan(providers: Provider[]): Promise<ScanResult> {
+  const results = await Promise.all(
+    providers.map((provider) =>
+      supabase.functions.invoke<{
+        messagesScanned: number
+        subscriptionsFound: number
+      }>(SCAN_FUNCTION_BY_PROVIDER[provider], { method: 'POST' }),
+    ),
   )
-  if (error) throw error
-  if (!data) throw new Error('Scan returned no result')
-  return data
+
+  const result: ScanResult = { messagesScanned: 0, subscriptionsFound: 0, errors: [] }
+  results.forEach(({ data, error }, i) => {
+    if (error) {
+      result.errors.push(`${providers[i]}: ${error.message}`)
+      return
+    }
+    if (data) {
+      result.messagesScanned += data.messagesScanned
+      result.subscriptionsFound += data.subscriptionsFound
+    }
+  })
+
+  return result
 }
 
 export type UpdateSubscriptionResult = {

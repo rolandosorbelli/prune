@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggleItem } from '@/components/theme-toggle-item'
+import { ConnectedAccountsSection } from '@/components/connected-accounts-section'
 import { useAuth } from '@/lib/auth'
 
 function initialsFor(name: string | null, email: string | undefined) {
@@ -50,6 +51,8 @@ export function AccountMenu() {
             </span>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator className="my-2" />
+        <ConnectedAccountsSection />
         <DropdownMenuSeparator className="my-2" />
         <ThemeToggleItem />
         <DropdownMenuSeparator className="my-2" />

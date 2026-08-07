@@ -5,6 +5,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { SubscriptionSidebar } from '@/components/subscription-sidebar'
 import { SubscriptionEmptyState } from '@/components/subscription-empty-state'
 import { SubscriptionRow, type PendingAction } from '@/components/subscription-row'
+import { useAuth } from '@/lib/auth'
+import { getConnectedProviders } from '@/lib/providers'
 import {
   fetchSubscriptions,
   ignoreSubscription,
@@ -12,12 +14,16 @@ import {
   unsubscribeFrom,
 } from '@/lib/subscriptions'
 import type {
+  Provider,
   Subscription,
   SubscriptionCategory,
   SubscriptionStatus,
 } from '@/lib/types'
 
 export function Dashboard() {
+  const { user } = useAuth()
+  const connectedProviders = useMemo(() => getConnectedProviders(user), [user])
+
   const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(
     null,
   )
@@ -28,6 +34,7 @@ export function Dashboard() {
     'all',
   )
   const [status, setStatus] = useState<SubscriptionStatus | 'all'>('all')
+  const [provider, setProvider] = useState<Provider | 'all'>('all')
   const [pending, setPending] = useState<Record<string, PendingAction>>({})
 
   useEffect(() => {
@@ -48,7 +55,8 @@ export function Dashboard() {
     setScanning(true)
     setError(null)
     try {
-      await triggerScan()
+      const result = await triggerScan(connectedProviders)
+      if (result.errors.length > 0) setError(result.errors.join('; '))
       await loadSubscriptions()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed')
@@ -121,19 +129,28 @@ export function Dashboard() {
     return counts
   }, [subscriptions])
 
+  const providerCounts = useMemo(() => {
+    const counts: Partial<Record<Provider, number>> = {}
+    for (const sub of subscriptions ?? []) {
+      counts[sub.provider] = (counts[sub.provider] ?? 0) + 1
+    }
+    return counts
+  }, [subscriptions])
+
   const filtered = useMemo(() => {
     if (!subscriptions) return []
     return subscriptions.filter((sub) => {
       const matchesCategory = category === 'all' || sub.category === category
       const matchesStatus = status === 'all' || sub.status === status
+      const matchesProvider = provider === 'all' || sub.provider === provider
       const query = search.trim().toLowerCase()
       const matchesSearch =
         query.length === 0 ||
         sub.senderEmail.toLowerCase().includes(query) ||
         (sub.senderName?.toLowerCase().includes(query) ?? false)
-      return matchesCategory && matchesStatus && matchesSearch
+      return matchesCategory && matchesStatus && matchesProvider && matchesSearch
     })
-  }, [subscriptions, search, category, status])
+  }, [subscriptions, search, category, status, provider])
 
   const isLoading = subscriptions === null
   const hasSubscriptions = (subscriptions?.length ?? 0) > 0
@@ -158,8 +175,12 @@ export function Dashboard() {
         onCategoryChange={setCategory}
         status={status}
         onStatusChange={setStatus}
+        provider={provider}
+        onProviderChange={setProvider}
         categoryCounts={categoryCounts}
         statusCounts={statusCounts}
+        providerCounts={providerCounts}
+        connectedProviders={connectedProviders}
         totalCount={subscriptions?.length ?? 0}
       />
 
@@ -173,7 +194,10 @@ export function Dashboard() {
               Newsletters and marketing lists found in your inbox.
             </p>
           </div>
-          <Button onClick={() => void handleScan()} disabled={scanning}>
+          <Button
+            onClick={() => void handleScan()}
+            disabled={scanning || connectedProviders.length === 0}
+          >
             <RefreshCw className={scanning ? 'animate-spin' : undefined} />
             {scanning ? 'Scanning…' : 'Scan inbox'}
           </Button>

@@ -9,8 +9,11 @@ export type SubscriptionStatus = 'active' | 'unsubscribed' | 'ignored'
 
 export type UnsubscribeMethod = 'link' | 'mailto' | 'manual' | null
 
+export type Provider = 'gmail' | 'outlook'
+
 export type Subscription = {
   id: string
+  provider: Provider
   senderEmail: string
   senderName: string | null
   category: SubscriptionCategory

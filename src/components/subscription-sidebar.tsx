@@ -1,8 +1,12 @@
 import { Search } from 'lucide-react'
 import { FilterRow } from '@/components/filter-row'
 import { Input } from '@/components/ui/input'
-import { CATEGORY_META, STATUS_META } from '@/lib/subscription-meta'
-import type { SubscriptionCategory, SubscriptionStatus } from '@/lib/types'
+import { CATEGORY_META, PROVIDER_META, STATUS_META } from '@/lib/subscription-meta'
+import type {
+  Provider,
+  SubscriptionCategory,
+  SubscriptionStatus,
+} from '@/lib/types'
 
 type Props = {
   search: string
@@ -11,8 +15,12 @@ type Props = {
   onCategoryChange: (value: SubscriptionCategory | 'all') => void
   status: SubscriptionStatus | 'all'
   onStatusChange: (value: SubscriptionStatus | 'all') => void
+  provider: Provider | 'all'
+  onProviderChange: (value: Provider | 'all') => void
   categoryCounts: Partial<Record<SubscriptionCategory, number>>
   statusCounts: Partial<Record<SubscriptionStatus, number>>
+  providerCounts: Partial<Record<Provider, number>>
+  connectedProviders: Provider[]
   totalCount: number
 }
 
@@ -23,8 +31,12 @@ export function SubscriptionSidebar({
   onCategoryChange,
   status,
   onStatusChange,
+  provider,
+  onProviderChange,
   categoryCounts,
   statusCounts,
+  providerCounts,
+  connectedProviders,
   totalCount,
 }: Props) {
   return (
@@ -39,6 +51,39 @@ export function SubscriptionSidebar({
           className="pl-9"
         />
       </div>
+
+      {/* Only worth showing once there is more than one connected mailbox
+          to actually distinguish between. */}
+      {connectedProviders.length > 1 && (
+        <div>
+          <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+            Account
+          </h3>
+          <nav className="flex flex-col gap-0.5">
+            <FilterRow
+              label="All"
+              count={totalCount}
+              active={provider === 'all'}
+              onClick={() => onProviderChange('all')}
+              dot="bg-foreground/30"
+            />
+            {connectedProviders.map((key) => {
+              const meta = PROVIDER_META[key]
+              return (
+                <FilterRow
+                  key={key}
+                  label={meta.label}
+                  icon={meta.icon}
+                  count={providerCounts[key] ?? 0}
+                  active={provider === key}
+                  onClick={() => onProviderChange(key)}
+                  dot={meta.dot}
+                />
+              )
+            })}
+          </nav>
+        </div>
+      )}
 
       <div>
         <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">

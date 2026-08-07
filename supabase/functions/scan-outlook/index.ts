@@ -3,19 +3,19 @@ import { decryptToken } from '../_shared/crypto.ts'
 import { createAdminClient, getUserFromRequest } from '../_shared/supabase-admin.ts'
 import { refreshAccessToken } from '../_shared/oauth.ts'
 import { mapWithConcurrency } from '../_shared/concurrency.ts'
+import { categorizeByHeuristic } from '../_shared/categorize.ts'
 import {
-  categoryFromLabels,
   isOneClickSupported,
   parseFromHeader,
   parseListUnsubscribe,
   type Category,
 } from '../_shared/parse.ts'
 
-const PROVIDER = 'gmail'
-const GMAIL_QUERY =
-  '(category:promotions OR category:social OR category:updates OR category:forums) newer_than:90d'
+const PROVIDER = 'outlook'
+const OUTLOOK_SCOPE = 'Mail.Read offline_access'
+const SCAN_WINDOW_DAYS = 90
 const MAX_MESSAGES = 300
-const PAGE_SIZE = 100
+const PAGE_SIZE = 50
 const FETCH_CONCURRENCY = 10
 
 type Aggregate = {
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     .single()
 
   if (accountError || !account) {
-    return jsonResponse({ error: 'No connected Gmail account' }, 400)
+    return jsonResponse({ error: 'No connected Outlook account' }, 400)
   }
 
   const { data: job } = await admin
@@ -65,10 +65,11 @@ Deno.serve(async (req) => {
       account.token_iv,
     )
     const accessToken = await refreshAccessToken({
-      tokenEndpoint: 'https://oauth2.googleapis.com/token',
-      clientId: Deno.env.get('GOOGLE_CLIENT_ID')!,
-      clientSecret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+      tokenEndpoint: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+      clientId: Deno.env.get('AZURE_CLIENT_ID')!,
+      clientSecret: Deno.env.get('AZURE_CLIENT_SECRET')!,
       refreshToken,
+      scope: OUTLOOK_SCOPE,
     })
     const messageIds = await listMessageIds(accessToken)
     const aggregates = await scanMessages(accessToken, messageIds)
@@ -113,34 +114,43 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+// Unlike Gmail, Graph has no server-side "category" filter to narrow the
+// candidate set with — every message in the date window has to be
+// examined and then discarded if it has no List-Unsubscribe header. This
+// means a Graph scan looks at more candidate messages per API call than
+// a Gmail scan does for the same MAX_MESSAGES budget.
 async function listMessageIds(accessToken: string): Promise<string[]> {
   const ids: string[] = []
-  let pageToken: string | undefined
+  const sinceDate = new Date(
+    Date.now() - SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString()
 
-  do {
-    const url = new URL(
-      'https://www.googleapis.com/gmail/v1/users/me/messages',
-    )
-    url.searchParams.set('q', GMAIL_QUERY)
-    url.searchParams.set('maxResults', String(PAGE_SIZE))
-    if (pageToken) url.searchParams.set('pageToken', pageToken)
+  let nextUrl: string | null = (() => {
+    const url = new URL('https://graph.microsoft.com/v1.0/me/messages')
+    url.searchParams.set('$select', 'id')
+    url.searchParams.set('$top', String(PAGE_SIZE))
+    url.searchParams.set('$filter', `receivedDateTime ge ${sinceDate}`)
+    url.searchParams.set('$orderby', 'receivedDateTime desc')
+    return url.toString()
+  })()
 
-    const response = await fetch(url, {
+  while (nextUrl && ids.length < MAX_MESSAGES) {
+    const response = await fetch(nextUrl, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (!response.ok) {
       const body = await response.text()
       throw new Error(
-        `Gmail list request failed (${response.status}): ${body}`,
+        `Outlook list request failed (${response.status}): ${body}`,
       )
     }
 
     const data = await response.json()
-    for (const message of data.messages ?? []) {
+    for (const message of data.value ?? []) {
       ids.push(message.id)
     }
-    pageToken = data.nextPageToken
-  } while (pageToken && ids.length < MAX_MESSAGES)
+    nextUrl = data['@odata.nextLink'] ?? null
+  }
 
   return ids.slice(0, MAX_MESSAGES)
 }
@@ -193,13 +203,11 @@ async function getMessageMetadata(
   accessToken: string,
   id: string,
 ): Promise<MessageMetadata | null> {
-  const url = new URL(
-    `https://www.googleapis.com/gmail/v1/users/me/messages/${id}`,
+  const url = new URL(`https://graph.microsoft.com/v1.0/me/messages/${id}`)
+  url.searchParams.set(
+    '$select',
+    'internetMessageHeaders,receivedDateTime',
   )
-  url.searchParams.set('format', 'metadata')
-  url.searchParams.append('metadataHeaders', 'From')
-  url.searchParams.append('metadataHeaders', 'List-Unsubscribe')
-  url.searchParams.append('metadataHeaders', 'List-Unsubscribe-Post')
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -208,13 +216,15 @@ async function getMessageMetadata(
 
   const data = await response.json()
   const headers: { name: string; value: string }[] =
-    data.payload?.headers ?? []
-  const fromHeader = headers.find((h) => h.name === 'From')?.value
+    data.internetMessageHeaders ?? []
+  const fromHeader = headers.find(
+    (h) => h.name.toLowerCase() === 'from',
+  )?.value
   const listUnsubscribeHeader = headers.find(
-    (h) => h.name === 'List-Unsubscribe',
+    (h) => h.name.toLowerCase() === 'list-unsubscribe',
   )?.value
   const listUnsubscribePostHeader = headers.find(
-    (h) => h.name === 'List-Unsubscribe-Post',
+    (h) => h.name.toLowerCase() === 'list-unsubscribe-post',
   )?.value
 
   // We only care about messages that are actually unsubscribable.
@@ -226,8 +236,8 @@ async function getMessageMetadata(
   return {
     senderEmail: email,
     senderName: name,
-    category: categoryFromLabels(data.labelIds ?? []),
-    date: new Date(Number(data.internalDate)).toISOString(),
+    category: categorizeByHeuristic(email),
+    date: new Date(data.receivedDateTime).toISOString(),
     unsubscribeMethod: method,
     unsubscribeTarget: target,
     supportsOneClick: isOneClickSupported(method, listUnsubscribePostHeader),

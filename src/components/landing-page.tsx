@@ -25,7 +25,7 @@ const FEATURES = [
 ]
 
 export function LandingPage() {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, signInWithMicrosoft } = useAuth()
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-20 px-8 py-24">
@@ -34,16 +34,29 @@ export function LandingPage() {
           Clean up your inbox subscriptions
         </h1>
         <p className="text-muted-foreground text-lg">
-          Connect your Gmail account, find every newsletter and marketing
-          list you're subscribed to, and unsubscribe in one click.
+          Connect your Gmail or Outlook account, find every newsletter and
+          marketing list you're subscribed to, and unsubscribe in one click.
         </p>
-        <Button
-          size="lg"
-          disabled={!isSupabaseConfigured}
-          onClick={() => void signInWithGoogle()}
-        >
-          Sign in with Google
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button
+            size="lg"
+            disabled={!isSupabaseConfigured}
+            onClick={() => void signInWithGoogle()}
+          >
+            Sign in with Google
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            disabled={!isSupabaseConfigured}
+            onClick={() => void signInWithMicrosoft()}
+          >
+            Sign in with Microsoft
+          </Button>
+        </div>
+        <p className="text-muted-foreground text-sm">
+          You can connect the other one later from your account menu.
+        </p>
         {!isSupabaseConfigured && (
           <p className="text-muted-foreground text-sm">
             Supabase isn't configured yet &mdash; add{' '}

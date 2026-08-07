@@ -23,6 +23,11 @@ create table public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   connected_account_id uuid not null references public.connected_accounts (id) on delete cascade,
+  -- Denormalized from connected_accounts.provider for simple filtering
+  -- without a join. The same sender is a separate subscription per
+  -- provider: unsubscribing in one connected mailbox should not silently
+  -- affect the same sender received via a different one.
+  provider text not null default 'gmail',
   sender_email text not null,
   sender_name text,
   category text not null default 'other'
@@ -38,7 +43,7 @@ create table public.subscriptions (
   supports_one_click boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, sender_email)
+  unique (user_id, sender_email, provider)
 );
 
 create index subscriptions_user_id_idx on public.subscriptions (user_id);

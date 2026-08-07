@@ -1,7 +1,7 @@
 import { Ban, Check, Link2, Loader2, Mail } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { CATEGORY_META } from '@/lib/subscription-meta'
+import { CATEGORY_META, PROVIDER_META } from '@/lib/subscription-meta'
 import type { Subscription } from '@/lib/types'
 
 export type PendingAction = 'unsubscribe' | 'ignore'
@@ -25,6 +25,8 @@ export function SubscriptionRow({
   const categoryMeta = CATEGORY_META[subscription.category]
   const CategoryIcon = categoryMeta.icon
   const MethodIcon = subscription.unsubscribeMethod === 'mailto' ? Mail : Link2
+  const providerMeta = PROVIDER_META[subscription.provider]
+  const ProviderIcon = providerMeta.icon
 
   return (
     <li className="bg-card flex flex-col gap-4 border p-5 shadow-sm transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between">
@@ -64,6 +66,13 @@ export function SubscriptionRow({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        <Badge
+          className={providerMeta.badge}
+          title={`Connected via ${providerMeta.label}`}
+        >
+          <ProviderIcon className="size-3" />
+          {providerMeta.label}
+        </Badge>
         <Badge className={categoryMeta.badge}>{categoryMeta.label}</Badge>
 
         {subscription.status === 'unsubscribed' ? (
