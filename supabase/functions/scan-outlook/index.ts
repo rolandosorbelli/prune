@@ -12,7 +12,10 @@ import {
 } from '../_shared/parse.ts'
 
 const PROVIDER = 'outlook'
-const OUTLOOK_SCOPE = 'Mail.Read offline_access'
+// Must match OUTLOOK_MAIL_SCOPE in src/lib/supabase.ts exactly — Microsoft's
+// refresh endpoint rejects a scope that doesn't match what was originally
+// granted at consent time (invalid_grant, not the more obvious invalid_scope).
+const OUTLOOK_SCOPE = 'openid email Mail.Read offline_access'
 const SCAN_WINDOW_DAYS = 90
 const MAX_MESSAGES = 300
 const PAGE_SIZE = 50
