@@ -12,10 +12,6 @@ import {
 } from '../_shared/parse.ts'
 
 const PROVIDER = 'outlook'
-// Must match OUTLOOK_MAIL_SCOPE in src/lib/supabase.ts exactly — Microsoft's
-// refresh endpoint rejects a scope that doesn't match what was originally
-// granted at consent time (invalid_grant, not the more obvious invalid_scope).
-const OUTLOOK_SCOPE = 'openid email Mail.Read offline_access'
 const SCAN_WINDOW_DAYS = 90
 const MAX_MESSAGES = 300
 const PAGE_SIZE = 50
@@ -72,7 +68,10 @@ Deno.serve(async (req) => {
       clientId: Deno.env.get('AZURE_CLIENT_ID')!,
       clientSecret: Deno.env.get('AZURE_CLIENT_SECRET')!,
       refreshToken,
-      scope: OUTLOOK_SCOPE,
+      // Deliberately omitted: scope is optional on a refresh per RFC 6749,
+      // and specifying our own here (rather than reusing whatever was
+      // originally granted) is the leading suspect for the
+      // AADSTS9002313 "malformed request" error seen without it.
     })
     const messageIds = await listMessageIds(accessToken)
     const aggregates = await scanMessages(accessToken, messageIds)

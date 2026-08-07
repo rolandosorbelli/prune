@@ -17,7 +17,6 @@ export const GMAIL_READONLY_SCOPE =
 
 // Mail.Read for the same reason on the Outlook side; offline_access is
 // what grants a refresh token (Microsoft's equivalent of Google's
-// access_type=offline). Must match OUTLOOK_SCOPE in
-// supabase/functions/scan-outlook/index.ts exactly, or token refresh
-// fails with invalid_grant.
+// access_type=offline). scan-outlook/connect-outlook deliberately don't
+// re-specify this scope when refreshing — see those files for why.
 export const OUTLOOK_MAIL_SCOPE = 'openid email Mail.Read offline_access'
