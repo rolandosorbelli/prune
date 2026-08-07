@@ -5,10 +5,6 @@ import { refreshAccessToken } from '../_shared/oauth.ts'
 import { mapWithConcurrency } from '../_shared/concurrency.ts'
 import { categorizeByHeuristic } from '../_shared/categorize.ts'
 import {
-  findUnsubscribeLinkInHtml,
-  findUnsubscribeLinkInText,
-} from '../_shared/body-unsubscribe.ts'
-import {
   isOneClickSupported,
   parseFromHeader,
   parseListUnsubscribe,
@@ -237,16 +233,7 @@ async function getMessageMetadata(
   if (!fromHeader || !listUnsubscribeHeader) return null
 
   const { name, email } = parseFromHeader(fromHeader)
-  let { method, target } = parseListUnsubscribe(listUnsubscribeHeader)
-
-  // The header exists but didn't parse into a usable link/mailto — some
-  // senders put a non-standard value there while still having a normal
-  // "Unsubscribe" link in the email body. Only fetch the body for this
-  // narrow fallback case, and only ever keep the URL we find, nothing else.
-  if (!method) {
-    target = await findUnsubscribeLinkInBody(accessToken, id)
-    if (target) method = 'link'
-  }
+  const { method, target } = parseListUnsubscribe(listUnsubscribeHeader)
 
   return {
     senderEmail: email,
@@ -257,28 +244,6 @@ async function getMessageMetadata(
     unsubscribeTarget: target,
     supportsOneClick: isOneClickSupported(method, listUnsubscribePostHeader),
   }
-}
-
-async function findUnsubscribeLinkInBody(
-  accessToken: string,
-  id: string,
-): Promise<string | null> {
-  const url = new URL(`https://graph.microsoft.com/v1.0/me/messages/${id}`)
-  url.searchParams.set('$select', 'body')
-
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!response.ok) return null
-  const data = await response.json()
-
-  const contentType = data.body?.contentType as string | undefined
-  const content = (data.body?.content as string | undefined) ?? ''
-  if (!content) return null
-
-  return contentType === 'html'
-    ? findUnsubscribeLinkInHtml(content)
-    : findUnsubscribeLinkInText(content)
 }
 
 // deno-lint-ignore no-explicit-any
