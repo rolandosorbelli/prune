@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { extractFunctionErrorMessage } from '@/lib/edge-function-error'
 import type { Provider, Subscription } from '@/lib/types'
 
 type SubscriptionRow = {
@@ -70,16 +71,16 @@ export async function triggerScan(providers: Provider[]): Promise<ScanResult> {
   )
 
   const result: ScanResult = { messagesScanned: 0, subscriptionsFound: 0, errors: [] }
-  results.forEach(({ data, error }, i) => {
+  for (const [i, { data, error }] of results.entries()) {
     if (error) {
-      result.errors.push(`${providers[i]}: ${error.message}`)
-      return
+      result.errors.push(`${providers[i]}: ${await extractFunctionErrorMessage(error)}`)
+      continue
     }
     if (data) {
       result.messagesScanned += data.messagesScanned
       result.subscriptionsFound += data.subscriptionsFound
     }
-  })
+  }
 
   return result
 }
@@ -99,7 +100,7 @@ async function updateSubscription(
     'update-subscription',
     { method: 'POST', body: { subscriptionId, action } },
   )
-  if (error) throw error
+  if (error) throw new Error(await extractFunctionErrorMessage(error))
   if (!data) throw new Error('No response from server')
   return data
 }

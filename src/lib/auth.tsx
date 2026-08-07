@@ -11,6 +11,7 @@ import {
   OUTLOOK_MAIL_SCOPE,
   supabase,
 } from '@/lib/supabase'
+import { extractFunctionErrorMessage } from '@/lib/edge-function-error'
 
 type AuthContextValue = {
   session: Session | null
@@ -261,22 +262,4 @@ async function persistProviderConnection(
   })
 
   if (error) setAuthError(await extractFunctionErrorMessage(error))
-}
-
-// supabase-js's functions.invoke() collapses any non-2xx response into a
-// generic "Edge Function returned a non-2xx status code" — our own
-// {error: "..."} body is on the underlying Response, at error.context,
-// not surfaced automatically. Same pattern worth reusing anywhere else
-// invoke() errors get shown directly to a user.
-async function extractFunctionErrorMessage(error: {
-  message: string
-  context?: Response
-}): Promise<string> {
-  try {
-    const body = await error.context?.clone().json()
-    if (typeof body?.error === 'string') return body.error
-  } catch {
-    // fall through to the generic message below
-  }
-  return error.message
 }
