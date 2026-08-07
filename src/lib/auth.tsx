@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
@@ -101,10 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
+    if (error) setAuthError(error.message)
   }
 
   async function signInWithMicrosoft() {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
         redirectTo: window.location.origin,
@@ -114,13 +115,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
+    if (error) setAuthError(error.message)
   }
 
   // Adds Gmail or Outlook as a second connected mailbox on an
   // already-signed-in user, instead of starting a fresh sign-in — this is
   // what lets someone start with either provider and add the other later.
+  // signInWithOAuth/linkIdentity don't throw on failure, they return
+  // {data, error} — awaiting without checking `error` means a failed
+  // redirect (blocked, already-linked, anything) fails completely
+  // silently. Every call site here needs to check it.
   async function linkGoogleAccount() {
-    await supabase.auth.linkIdentity({
+    const { error } = await supabase.auth.linkIdentity({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
@@ -131,10 +137,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
+    if (error) setAuthError(error.message)
   }
 
   async function linkMicrosoftAccount() {
-    await supabase.auth.linkIdentity({
+    const { error } = await supabase.auth.linkIdentity({
       provider: 'azure',
       options: {
         redirectTo: window.location.origin,
@@ -144,6 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     })
+    if (error) setAuthError(error.message)
   }
 
   // Supabase refuses to link an identity that's already linked — even to
